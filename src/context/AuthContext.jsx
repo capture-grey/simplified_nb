@@ -4,28 +4,58 @@ import { createContext, useContext, useState, useEffect } from "react";
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [authState, setAuthState] = useState({
+    isAuthenticated: false,
+    token: null,
+    user: null,
+    isLoading: true,
+  });
 
   useEffect(() => {
-    // Check if user is logged in (e.g., check localStorage or make API call)
     const token = localStorage.getItem("token");
-    setIsAuthenticated(!!token);
-    setLoading(false);
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    if (token && user) {
+      setAuthState({
+        isAuthenticated: true,
+        token,
+        user,
+        isLoading: false,
+      });
+    } else {
+      setAuthState({
+        isAuthenticated: false,
+        token: null,
+        user: null,
+        isLoading: false,
+      });
+    }
   }, []);
 
-  const login = (token) => {
+  const login = (token, user) => {
     localStorage.setItem("token", token);
-    setIsAuthenticated(true);
+    localStorage.setItem("user", JSON.stringify(user));
+    setAuthState({
+      isAuthenticated: true,
+      token,
+      user,
+      isLoading: false,
+    });
   };
 
   const logout = () => {
     localStorage.removeItem("token");
-    setIsAuthenticated(false);
+    localStorage.removeItem("user");
+    setAuthState({
+      isAuthenticated: false,
+      token: null,
+      user: null,
+      isLoading: false,
+    });
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, loading }}>
+    <AuthContext.Provider value={{ ...authState, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

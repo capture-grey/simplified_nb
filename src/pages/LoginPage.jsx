@@ -23,24 +23,35 @@ const LoginPage = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim(),
+        }),
       });
 
       const data = await response.json();
+
+      console.log("Login response:", data); // Debug log
 
       if (!response.ok) {
         throw new Error(data.message || "Login failed");
       }
 
-      login(data.token);
+      // Updated to match your API response structure
+      if (!data.data?.token) {
+        throw new Error("Authentication token not received");
+      }
+
+      // Save token and user data
+      login(data.data.token, data.data.user);
       navigate("/home");
     } catch (err) {
+      console.error("Login error:", err);
       setError(err.message || "Invalid email or password");
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">

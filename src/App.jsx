@@ -1,46 +1,32 @@
-// src/App.js
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+// src/App.jsx
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
 import HomePage from "./pages/HomePage";
 import GetStartedPage from "./pages/GetStartedPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-import { useAuth } from "./context/AuthContext";
+import { AuthProvider } from "./context/AuthContext";
 
 function App() {
-  const { isAuthenticated } = useAuth();
-
   return (
-    <Router>
-      <Routes>
-        {/* Protected routes - only accessible when logged in */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/home" element={<HomePage />} />
-          {/* Add other protected routes here */}
-        </Route>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<ProtectedRoute />}>
+            <Route path="/home" element={<HomePage />} />
+          </Route>
 
-        {/* Public routes - only accessible when NOT logged in */}
-        <Route element={<PublicRoute />}>
-          <Route path="/get-started" element={<GetStartedPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-        </Route>
+          <Route element={<PublicRoute />}>
+            <Route path="/get-started" element={<GetStartedPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+          </Route>
 
-        {/* Default redirect */}
-        <Route
-          path="/"
-          element={
-            <Navigate to={isAuthenticated ? "/home" : "/get-started"} replace />
-          }
-        />
-      </Routes>
-    </Router>
+          <Route path="/" element={<Navigate to="/get-started" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 
