@@ -6,6 +6,7 @@ import HomePage from "./pages/HomePage";
 import GetStartedPage from "./pages/GetStartedPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ForumPage from "./pages/ForumPage";
 import { AuthProvider } from "./context/AuthContext";
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
         <Routes>
           <Route element={<ProtectedRoute />}>
             <Route path="/home" element={<HomePage />} />
+            <Route path="/forums/:forumId" element={<ForumPage />} />
           </Route>
 
           <Route element={<PublicRoute />}>
