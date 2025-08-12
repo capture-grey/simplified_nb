@@ -24,8 +24,46 @@ const MemberRow = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showBooks, setShowBooks] = useState(false);
+  const [memberBooks, setMemberBooks] = useState([]);
+  const [booksLoading, setBooksLoading] = useState(false);
 
-  const handleMakeAdmin = async () => {
+  const fetchMemberBooks = async () => {
+    try {
+      setBooksLoading(true);
+      const response = await fetch(
+        `http://localhost:5000/api/forum/${forumId}/users/${member.userId._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to fetch member's books");
+      }
+
+      setMemberBooks(data.data.books || []);
+    } catch (err) {
+      console.error("Error fetching member books:", err);
+      setError("Failed to load member's books");
+    } finally {
+      setBooksLoading(false);
+    }
+  };
+
+  const handleShowBooks = () => {
+    if (!showBooks && memberBooks.length === 0) {
+      fetchMemberBooks();
+    }
+    setShowBooks(!showBooks);
+  };
+
+  const handleMakeAdmin = async (e) => {
+    e.stopPropagation();
     try {
       setLoading(true);
       const response = await fetch(
@@ -51,7 +89,8 @@ const MemberRow = ({
     }
   };
 
-  const handleRemoveMember = async () => {
+  const handleRemoveMember = async (e) => {
+    e.stopPropagation();
     try {
       setLoading(true);
       const response = await fetch(
@@ -77,34 +116,76 @@ const MemberRow = ({
     }
   };
 
+  // REPLACE YOUR EXISTING RETURN STATEMENT WITH THIS:
   return (
-    <div className="flex items-center justify-between p-3 border-b">
-      <div className="flex items-center">
-        <User className="mr-2" size={18} />
-        <span>{member.userId.username}</span>
-        {member.role === "admin" && (
-          <Shield className="ml-2 text-yellow-500" size={16} />
-        )}
+    <div className="border-b">
+      <div
+        className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
+        onClick={handleShowBooks}
+      >
+        <div className="flex items-center">
+          <User className="mr-2" size={18} />
+          <span>{member.userId.username}</span>
+          {member.role === "admin" && (
+            <Shield className="ml-2 text-yellow-500" size={16} />
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">
+            {showBooks ? "Hide books" : "Show books"}
+          </span>
+          {currentUserRole === "admin" && member.role !== "admin" && (
+            <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={handleMakeAdmin}
+                disabled={loading}
+                className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+              >
+                {loading ? "Processing..." : "Make Admin"}
+              </button>
+              <button
+                onClick={handleRemoveMember}
+                disabled={loading}
+                className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+              >
+                {loading ? "Processing..." : "Remove"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-      {currentUserRole === "admin" && member.role !== "admin" && (
-        <div className="flex gap-2">
-          <button
-            onClick={handleMakeAdmin}
-            disabled={loading}
-            className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-          >
-            {loading ? "Processing..." : "Make Admin"}
-          </button>
-          <button
-            onClick={handleRemoveMember}
-            disabled={loading}
-            className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
-          >
-            {loading ? "Processing..." : "Remove"}
-          </button>
+
+      {showBooks && (
+        <div className="bg-gray-50 p-3 pl-10">
+          <h4 className="font-medium mb-2 flex items-center">
+            <BookOpen className="mr-2" size={16} />
+            {member.userId.username}'s Books
+          </h4>
+          {booksLoading ? (
+            <div className="flex justify-center py-2">
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+          ) : memberBooks.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {memberBooks.map((book) => (
+                <div key={book._id} className="p-2 bg-white rounded border">
+                  <p className="font-medium">{book.title}</p>
+                  <p className="text-sm text-gray-600">by {book.author}</p>
+                  {book.genre && (
+                    <p className="text-xs text-gray-500">Genre: {book.genre}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm">No books found</p>
+          )}
         </div>
       )}
-      {error && <p className="text-red-500 text-sm">{error}</p>}
+
+      {error && (
+        <div className="bg-red-50 p-2 text-red-500 text-sm">{error}</div>
+      )}
     </div>
   );
 };
@@ -113,31 +194,66 @@ const BookRow = ({ book, forumId, token, isAdmin, onBookAction }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showOwners, setShowOwners] = useState(false);
+  const [owners, setOwners] = useState([]);
+  const [ownersLoading, setOwnersLoading] = useState(false);
 
-  const handleHideBook = async () => {
+  const fetchOwners = async () => {
     try {
-      setLoading(true);
-      const response = await fetch(
-        `http://localhost:5000/api/forum/${forumId}/books/${book._id}/hide`,
+      setOwnersLoading(true);
+      // First get all members in the forum
+      const forumResponse = await fetch(
+        `http://localhost:5000/api/forum/${forumId}`,
         {
-          method: "PATCH",
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
           },
         }
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to hide book");
+      const forumData = await forumResponse.json();
+      if (!forumResponse.ok)
+        throw new Error(forumData.message || "Failed to fetch forum members");
+
+      // For each member, check if they own this book
+      const ownersList = [];
+      for (const member of forumData.data.members) {
+        const memberResponse = await fetch(
+          `http://localhost:5000/api/forum/${forumId}/users/${member._id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const memberData = await memberResponse.json();
+        if (!memberResponse.ok) continue;
+
+        // Check if this member has the current book
+        const hasBook = memberData.data.books.some((b) => b._id === book._id);
+        if (hasBook) {
+          ownersList.push({
+            _id: member._id,
+            username: member.name,
+            email: member.email,
+          });
+        }
       }
 
-      onBookAction();
+      setOwners(ownersList);
     } catch (err) {
-      setError(err.message);
+      console.error("Error fetching owners:", err);
+      setError("Failed to load book owners");
     } finally {
-      setLoading(false);
+      setOwnersLoading(false);
     }
+  };
+
+  const handleShowOwners = () => {
+    if (!showOwners && owners.length === 0) {
+      fetchOwners();
+    }
+    setShowOwners(!showOwners);
   };
 
   const handleUnhideBook = async () => {
@@ -172,13 +288,21 @@ const BookRow = ({ book, forumId, token, isAdmin, onBookAction }) => {
         <div>
           <h4 className="font-medium">{book.title}</h4>
           <p className="text-sm text-gray-600">by {book.author}</p>
+          {book.genre && (
+            <p className="text-xs text-gray-500">Genre: {book.genre}</p>
+          )}
         </div>
         <div className="flex gap-2 items-center">
           <button
-            onClick={() => setShowOwners(!showOwners)}
+            onClick={handleShowOwners}
             className="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300"
+            disabled={ownersLoading}
           >
-            {showOwners ? "Hide Owners" : "Show Owners"}
+            {ownersLoading
+              ? "Loading..."
+              : showOwners
+              ? "Hide Owners"
+              : "Show Owners"}
           </button>
           {isAdmin &&
             (book.hidden ? (
@@ -203,17 +327,22 @@ const BookRow = ({ book, forumId, token, isAdmin, onBookAction }) => {
       {showOwners && (
         <div className="mt-2 pl-4 border-l-2 border-gray-200">
           <h5 className="font-medium text-sm mb-1">Owners:</h5>
-          {book.owners.length > 0 ? (
+          {ownersLoading ? (
+            <p className="text-sm text-gray-500">Loading owners...</p>
+          ) : owners.length > 0 ? (
             <ul className="text-sm">
-              {book.owners.map((owner) => (
+              {owners.map((owner) => (
                 <li key={owner._id} className="flex items-center py-1">
                   <User className="mr-2" size={14} />
                   {owner.username}
+                  {owner.role === "admin" && (
+                    <Shield className="ml-2 text-yellow-500" size={14} />
+                  )}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-gray-500">No owners listed</p>
+            <p className="text-sm text-gray-500">No owners found</p>
           )}
         </div>
       )}
@@ -221,7 +350,6 @@ const BookRow = ({ book, forumId, token, isAdmin, onBookAction }) => {
     </div>
   );
 };
-
 const ForumDetailsForm = ({ forum, token, onUpdate }) => {
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState({
